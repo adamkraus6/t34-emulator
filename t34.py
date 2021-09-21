@@ -14,7 +14,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def displayMem(loc):
-    print(str(loc).zfill(4), str(memory[int(loc, 16)]).zfill(2), sep=' ', end='')
+    print(str(loc).zfill(4), hex(memory[int(loc, 16)])[2:].zfill(2).upper(), sep=' ')
     return
 
 def displayMemRange(start, end):
@@ -55,24 +55,24 @@ def main():
         print("no file")
 
     # get input
-    console = input("> ")
+    monitor = input("> ")
+    while "exit" not in monitor:
+        # check input
+        if "R" in monitor:
+            # run program at starting address
+            runProg(monitor[:-1])
+        elif "." in monitor:
+            # display memory range
+            split = monitor.split(".")
+            displayMemRange(split[0], split[1])
+        elif ":" in monitor:
+            # edit memory locations
+            split = monitor.split()
+            editMem(split[0][:-1], split[1:])    
+        else:
+            displayMem(monitor)
 
-    # check input
-    if "R" in console:
-        # run program at starting address
-        runProg(console)
-    elif "." in console:
-        # display memory range
-        split = console.split(".")
-        displayMemRange(split[0], split[1])
-    elif ":" in console:
-        # edit memory locations
-        split = console.split()
-        editMem(split[0][:-1], split[1:])
-    else:
-        displayMem(console)
-
-    displayMemRange(str(300), str(310))
+        monitor = input("> ")
 
 if __name__ == "__main__":
     main()
