@@ -1,5 +1,5 @@
 import sys
-import numpy as np
+import re
 
 memory = [0]*65536
 pc = 0
@@ -45,8 +45,15 @@ def main():
 
     if len(sys.argv) > 1:
         f = open(sys.argv[1], "r")
-        # print(f.read())
-        # 
+        lines = f .readlines()
+        for line in lines:
+            line = line[:-1]
+            byteCount = int(line[1:3], 16)
+            address = int(line[3:7], 16)
+            recordType = int(line[7:9], 16)
+            if recordType != 1:
+                data = re.findall("..?", line[9:9+2*byteCount])
+                editMem(address, data)
     else:
         print("no file")
 
