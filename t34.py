@@ -18,8 +18,7 @@ def displayMem(loc):
     return
 
 def displayMemRange(start, end):
-    sub_list = memory[start:end+1]
-    sections = list(chunks(sub_list, 8))
+    sections = list(chunks(memory[start:end+1], 8))
     for section in sections:
         print(format(start, "04X"), end=' ')
         for no in section:
@@ -36,13 +35,11 @@ def editMem(loc, newMem):
 
 def runProg(loc):
     pc = loc;
-
+    print("PC  OPC INS AMOD OPRND AC XR YR SP NV-BDIZC")
+    print(format(pc, "04X"))
     return
 
 def main():
-    # print(sys.argv[1])
-    # print(len(sys.argv))
-
     if len(sys.argv) > 1:
         f = open(sys.argv[1], "r")
         lines = f .readlines()
