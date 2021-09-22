@@ -14,28 +14,24 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def displayMem(loc):
-    print(str(loc).zfill(4), hex(memory[int(loc, 16)])[2:].zfill(2).upper(), sep=' ')
+    print(format(loc, "04X"), format(memory[loc], "02X"), sep=' ')
     return
 
 def displayMemRange(start, end):
-    sub_list = memory[int(start, 16):int(end, 16)+1]
+    sub_list = memory[start:end+1]
     sections = list(chunks(sub_list, 8))
-    i = int(start, 16)
     for section in sections:
-        print(hex(i)[2:].zfill(4).upper(), end=' ')
+        print(format(start, "04X"), end=' ')
         for no in section:
-            print(hex(no)[2:].zfill(2).upper(), end=' ')
-        i += 8
+            print(format(no, "02X"), end=' ')
+        start += 8
         print("")
     return
 
 def editMem(loc, newMem):
-    # print(loc)
-    # print(newMem, sep=' ')
-    i = int(loc, 16)
     for mem in newMem:
-        memory[i] = int(mem, 16)
-        i += 1
+        memory[loc] = int(mem, 16)
+        loc += 1
     return
 
 def runProg(loc):
@@ -60,17 +56,17 @@ def main():
         # check input
         if "R" in monitor:
             # run program at starting address
-            runProg(monitor[:-1])
+            runProg(int(monitor[:-1], 16))
         elif "." in monitor:
             # display memory range
             split = monitor.split(".")
-            displayMemRange(split[0], split[1])
+            displayMemRange(int(split[0], 16), int(split[1], 16))
         elif ":" in monitor:
             # edit memory locations
             split = monitor.split()
-            editMem(split[0][:-1], split[1:])    
+            editMem(int(split[0][:-1], 16), split[1:])    
         else:
-            displayMem(monitor)
+            displayMem(int(monitor, 16))
 
         monitor = input("> ")
 
