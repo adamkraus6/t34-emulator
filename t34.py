@@ -70,104 +70,147 @@ def interpret():
             amod = "impl"
             sr = set_bit(sr, 2)
             sr = set_bit(sr, 4)
+            memory[sp] = pc+2
+            memory[sp-1] = sr
+            sp-=2
     elif lo == "8":
+        amod = "impl"
         if hi == "0": # php impl
             ins = "PHP"
-            amod = "impl"
             memory[sp] = sr
+            sp-=1
         elif hi == "1": # clc impl
             ins = "CLC"
-            amod = "impl"
             sr = clear_bit(sr, 0)
         elif hi == "2": # plp impl
             ins = "PLP"
-            amod = "impl"
+            sp+=1
             sr = memory[sp]
         elif hi == "3": # sec impl
             ins = "SEC"
-            amod = "impl"
             sr = set_bit(sr, 0)
         elif hi == "4": # pha impl
             ins = "PHA"
-            amod = "impl"
             memory[sp] = ac
+            sp-=1
         elif hi == "5": # cli impl
             ins = "CLI"
-            amod = "impl"
             sr = clear_bit(sr, 2)
         elif hi == "6": # pla impl
             ins = "PLA"
-            amod = "impl"
+            sp+=1
             ac = memory[sp]
         elif hi == "7": # sei impl
             ins = "SEI"
-            amod = "impl"
             sr = set_bit(sr, 2)
         elif hi == "8": # dey impl
             ins = "DEY"
-            amod = "impl"
             y-=1
             if y < 0:
                 y+=256
+            if check_bit(y, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "9": # tya impl
             ins = "TYA"
-            amod = "impl"
             ac = y
-            if check_bit(y, 7):
+            if check_bit(y, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "A": # tay impl
             ins = "TAY"
-            amod = "impl"
             y = ac
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "B": # clv impl
             sr = clear_bit(sr, 6)
             ins = "CLV"
-            amod = "impl"
         elif hi == "C": # iny impl
             ins = "INY"
-            amod = "impl"
             y+=1
             if y > 255:
                 y-=256
+            sr = clear_bit(sr, 7)
+            if check_bit(y, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "D": # cld impl
             ins = "CLD"
-            amod = "impl"
             sr = clear_bit(sr, 3)
         elif hi == "E": # inx impl
             ins = "INX"
-            amod = "impl"
             x+=1
-            sr = clear_bit(sr, 7)
             if x > 255:
                 x-=256
+            sr = clear_bit(sr, 7)
+            if check_bit(x, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
         else: # sed impl
             ins = "SED"
-            amod = "impl"
             sr = set_bit(sr, 3)
     elif lo == "A":
         if hi == "0": # asl A
             ins = "ASL"
             amod = "A"
-            if check_bit(ac, 7):
+            if check_bit(ac, 7): # set carry flag
                 sr = set_bit(sr, 0)
-                clear_bit(ac, 7)
             ac=ac<<1
             if ac > 255:
                 ac-=256
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "2": # rol A
             ins = "ROL"
             amod = "A"
+            old_ac = ac
+            ac=ac<<1
+            if ac > 255:
+                ac-=256
+            if check_bit(old_ac, 7):
+                ac = set_bit(ac, 0)
+                sr = set_bit(sr, 0) # set carry flag
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "4": # lsr A
             ins = "LSR"
             amod = "A"
+            sr = clear_bit(sr, 0) # clear carry flag
+            sr = clear_bit(sr, 1) # clear zero flag
+            if check_bit(ac, 0):
+                sr = set_bit(sr, 0) # set carry flag
+            ac=ac>>1 # shift left 1
+            if ac == 0:
+                sr = set_bit(sr, 1) # set zero flag
         elif hi == "6": # ror A
             ins = "ROR"
             amod = "A"
+            old_ac = ac
+            ac=ac>>1
+            if check_bit(old_ac, 0):
+                ac = set_bit(ac, 7)
+                sr = set_bit(sr, 0) # set carry flag
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "8": # txa impl
             ins = "TXA"
             amod = "impl"
             ac = x
+            sr = clear_bit(sr, 7)
+            if check_bit(ac, 7):
+                sr = set_bit(sr, 7)
         elif hi == "9": # txs impl
             ins = "TXS"
             amod = "impl"
@@ -194,23 +237,41 @@ def interpret():
     print("", format(pc, "04X"), opc, "", ins, " ", format(amod, " >4"), oprnd, "", format(ac, "02X"), format(x, "02X"), format(y, "02X"), format(sp, "X")[-2:], format(sr, "08b"))
     return
 
-def main():
+def fileInput():
     if len(sys.argv) > 1:
         # file argument supplied
         f = open(sys.argv[1], "r")
         # read file lines
-        lines = f .readlines()
+        lines = f.readlines()
         for line in lines:
             line = line[:-1]
             byteCount = int(line[1:3], 16)
             address = int(line[3:7], 16)
             recordType = int(line[7:9], 16)
+            data = re.findall("..?", line[9:9+2*byteCount])
+            checksum_obj = int(line[-2:], 16)
             # do checksum validaton
+            checksum_calc = byteCount + int(line[3:5], 16) + int(line[5:7], 16) + recordType
+            for byte in data:
+                checksum_calc += int(byte, 16)
+
+            checksum_calc = (checksum_calc % 256)^255
+            checksum_calc += 1
+
+            if recordType == 1: #EOF
+                return
+
+            if checksum_calc != checksum_obj:
+                print("Format error input file: ", sys.argv[1])
+                return
 
             # if data record, edit memory with opcodes
             if recordType == 0:
-                data = re.findall("..?", line[9:9+2*byteCount])
                 editMem(address, data)
+    return
+
+def main():
+    fileInput()
 
     # get input
     monitor = input("> ")
