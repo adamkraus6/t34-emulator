@@ -7,7 +7,7 @@ ac = 0
 x = 0
 y = 0
 sr = 32
-sp = int("1FF", 16)
+sp = 255
 
 def chunks(lst, n):
     for i in range(0, len(lst), n):
@@ -75,12 +75,14 @@ def interpret():
             sp-=2
     elif lo == "8":
         amod = "impl"
+
         if hi == "0": # php impl
             ins = "PHP"
             memory[sp] = sr
             sp-=1
         elif hi == "1": # clc impl
             ins = "CLC"
+
             sr = clear_bit(sr, 0)
         elif hi == "2": # plp impl
             ins = "PLP"
@@ -95,6 +97,7 @@ def interpret():
             sp-=1
         elif hi == "5": # cli impl
             ins = "CLI"
+
             sr = clear_bit(sr, 2)
         elif hi == "6": # pla impl
             ins = "PLA"
@@ -105,53 +108,88 @@ def interpret():
             sr = set_bit(sr, 2)
         elif hi == "8": # dey impl
             ins = "DEY"
+
             y-=1
             if y < 0:
                 y+=256
+
             if check_bit(y, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
             if y == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "9": # tya impl
             ins = "TYA"
+
             ac = y
-            if check_bit(y, 7): # set negative flag
-                sr = set_bit(sr, 7)
-            if y == 0: # set zero flag
-                sr = set_bit(sr, 1)
-        elif hi == "A": # tay impl
-            ins = "TAY"
-            y = ac
+            
             if check_bit(ac, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
             if ac == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+        elif hi == "A": # tay impl
+            ins = "TAY"
+
+            y = ac
+            
+            if check_bit(y, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "B": # clv impl
-            sr = clear_bit(sr, 6)
             ins = "CLV"
+
+            sr = clear_bit(sr, 6)
         elif hi == "C": # iny impl
             ins = "INY"
+
             y+=1
             if y > 255:
                 y-=256
-            sr = clear_bit(sr, 7)
+            
             if check_bit(y, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
             if y == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "D": # cld impl
             ins = "CLD"
+
             sr = clear_bit(sr, 3)
         elif hi == "E": # inx impl
             ins = "INX"
+
             x+=1
             if x > 255:
                 x-=256
-            sr = clear_bit(sr, 7)
+        
             if check_bit(x, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
             if x == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         else: # sed impl
             ins = "SED"
             sr = set_bit(sr, 3)
@@ -159,77 +197,153 @@ def interpret():
         if hi == "0": # asl A
             ins = "ASL"
             amod = "A"
+
             if check_bit(ac, 7): # set carry flag
                 sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+
             ac=ac<<1
             if ac > 255:
                 ac-=256
+            
             if check_bit(ac, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
             if ac == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "2": # rol A
             ins = "ROL"
             amod = "A"
+
             old_ac = ac
             ac=ac<<1
             if ac > 255:
                 ac-=256
-            if check_bit(old_ac, 7):
+
+            if check_bit(old_ac, 7): # set carry flag
                 ac = set_bit(ac, 0)
-                sr = set_bit(sr, 0) # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+
             if check_bit(ac, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
             if ac == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "4": # lsr A
             ins = "LSR"
             amod = "A"
-            sr = clear_bit(sr, 0) # clear carry flag
-            sr = clear_bit(sr, 1) # clear zero flag
-            if check_bit(ac, 0):
-                sr = set_bit(sr, 0) # set carry flag
-            ac=ac>>1 # shift left 1
-            if ac == 0:
-                sr = set_bit(sr, 1) # set zero flag
+            
+            if check_bit(ac, 0): # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+            
+            ac=ac>>1 # shift right 1
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 0)
         elif hi == "6": # ror A
             ins = "ROR"
             amod = "A"
+
             old_ac = ac
             ac=ac>>1
-            if check_bit(old_ac, 0):
+            
+            if check_bit(old_ac, 0): # set carry flag
                 ac = set_bit(ac, 7)
-                sr = set_bit(sr, 0) # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+
             if check_bit(ac, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
             if ac == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "8": # txa impl
             ins = "TXA"
             amod = "impl"
+
             ac = x
-            sr = clear_bit(sr, 7)
-            if check_bit(ac, 7):
+
+            if check_bit(ac, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "9": # txs impl
             ins = "TXS"
             amod = "impl"
+
             sp = x
         elif hi == "A": # tax impl
             ins = "TAX"
             amod = "impl"
+
             x = ac
+
+            if check_bit(x, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "B": # tsx impl
             ins = "TSX"
             amod = "impl"
+
             x = sp
+
+            if check_bit(x, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "C": # dex impl
             ins = "DEX"
             amod = "impl"
+
             x-=1
             if x < 0:
                 x+=256
+
+            if check_bit(x, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "E": # nop impl
             ins = "NOP"
             amod = "impl"
