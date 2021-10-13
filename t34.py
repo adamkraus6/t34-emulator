@@ -369,7 +369,7 @@ def interpret():
     print("", format(pc, "04X"), opc, "", ins, " ", format(amod, " >4"), oprnd, "", format(ac, "02X"), format(x, "02X"), format(y, "02X"), format(sp, "X")[-2:], format(sr, "08b"))
     return
 
-def fileInput():
+def file_input():
     if len(sys.argv) > 1:
         # file argument supplied
         f = open(sys.argv[1], "r")
@@ -403,7 +403,7 @@ def fileInput():
     return
 
 def main():
-    fileInput()
+    file_input()
 
     # get input
     monitor = input("> ")
