@@ -68,16 +68,21 @@ def interpret():
         if hi == "0": # brk impl
             ins = "BRK"
             amod = "impl"
-            sr = set_bit(sr, 2)
-            sr = set_bit(sr, 4)
-            memory[sp] = pc+2
-            memory[sp-1] = sr
-            sp-=2
+
+            sr = set_bit(sr, 2) # set interrupt flag
+            sr = set_bit(sr, 4) # set break flag
+
+            memory[sp+255] = pc>>8 # top half of pc
+            memory[sp+255-1] = (pc+2)%256 # bottom half of pc
+            memory[sp+255-2] = sr
+
+            sp-=3
     elif lo == "8":
         amod = "impl"
 
         if hi == "0": # php impl
             ins = "PHP"
+
             memory[sp] = sr
             sp-=1
         elif hi == "1": # clc impl
@@ -86,6 +91,7 @@ def interpret():
             sr = clear_bit(sr, 0)
         elif hi == "2": # plp impl
             ins = "PLP"
+
             sp+=1
             sr = memory[sp]
         elif hi == "3": # sec impl
@@ -93,6 +99,7 @@ def interpret():
             sr = set_bit(sr, 0)
         elif hi == "4": # pha impl
             ins = "PHA"
+
             memory[sp] = ac
             sp-=1
         elif hi == "5": # cli impl
@@ -101,8 +108,19 @@ def interpret():
             sr = clear_bit(sr, 2)
         elif hi == "6": # pla impl
             ins = "PLA"
+
             sp+=1
             ac = memory[sp]
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
         elif hi == "7": # sei impl
             ins = "SEI"
             sr = set_bit(sr, 2)
