@@ -14,7 +14,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def displayMem(loc):
-    print(format(loc, "04X"), format(memory[loc], "02X"), sep=' ')
+    print("{:04X} {:02X}".format(loc, memory[loc]))
     return
 
 def displayMemRange(start, end):
@@ -37,7 +37,7 @@ def runProg(loc):
     global pc
     pc = loc
     print(" PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC")
-    while not check_bit(sr, 2):
+    while not check_bit(sr, 2): # while interrupt bit is not set
         interpret()
         pc+=1
     return
@@ -57,13 +57,14 @@ def interpret():
     global y
     global sr
     global sp
-    # PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC
-    opc = format(memory[pc], "02X")
+    
+    opc = "{:02X}".format(memory[pc])
     ins = "???"
     amod = "----"
     oprnd = "-- --"
     hi = opc[0]
     lo = opc[1]
+
     if lo == "0":
         if hi == "0": # brk impl
             ins = "BRK"
@@ -72,9 +73,10 @@ def interpret():
             sr = set_bit(sr, 2) # set interrupt flag
             sr = set_bit(sr, 4) # set break flag
 
-            memory[sp+255] = pc>>8 # top half of pc
-            memory[sp+255-1] = (pc+2)%256 # bottom half of pc
-            memory[sp+255-2] = sr
+            # add 256 offset to get in range 01FF to 0100
+            memory[sp+256] = (pc+2)>>8 # top half of pc
+            memory[sp+256-1] = (pc+2)%256 # bottom half of pc
+            memory[sp+256-2] = sr
 
             sp-=3
     elif lo == "8":
@@ -366,7 +368,9 @@ def interpret():
             ins = "NOP"
             amod = "impl"
 
-    print("", format(pc, "04X"), opc, "", ins, " ", format(amod, " >4"), oprnd, "", format(ac, "02X"), format(x, "02X"), format(y, "02X"), format(sp, "X")[-2:], format(sr, "08b"))
+    # PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC
+    output = " {:04X} {}  {}   {:>4} {}  {:02X} {:02X} {:02X} {:02X} {:08b}"
+    print(output.format(pc, opc, ins, amod, oprnd, ac, x, y, sp, sr))
     return
 
 def file_input():
