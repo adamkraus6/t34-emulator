@@ -1,20 +1,23 @@
+# Adam Kraus
+# T34 Emulator
+
 import sys
 import re
 
-memory = [0]*65536
+memory = [format(0, "02X")]*65536
 pc = 0
 ac = 0
 x = 0
 y = 0
-sr = 32
-sp = 255
+sr = 32 # 0010 0000
+sp = 255 # Add 256 to put in range 01FF to 0100
 
 def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 def displayMem(loc):
-    print("{:04X} {:02X}".format(loc, memory[loc]))
+    print("{:04X} {}".format(loc, memory[loc]))
     return
 
 def displayMemRange(start, end):
@@ -29,7 +32,7 @@ def displayMemRange(start, end):
 
 def editMem(loc, newMem):
     for mem in newMem:
-        memory[loc] = int(mem, 16)
+        memory[loc] = mem
         loc += 1
     return
 
@@ -58,7 +61,7 @@ def interpret():
     global sr
     global sp
     
-    opc = "{:02X}".format(memory[pc])
+    opc = memory[pc]
     ins = "???"
     amod = "----"
     oprnd = "-- --"
@@ -410,7 +413,7 @@ def main():
     file_input()
 
     # get input
-    monitor = input("> ")
+    monitor = input("> ").upper()
     while "exit" not in monitor:
         # check input
         if "R" in monitor: # ex: 200R
@@ -427,7 +430,7 @@ def main():
         else: # ex: 200
             displayMem(int(monitor, 16))
 
-        monitor = input("> ")
+        monitor = input("> ").upper()
 
 if __name__ == "__main__":
     main()
