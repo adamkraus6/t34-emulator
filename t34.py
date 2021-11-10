@@ -41,8 +41,8 @@ def runProg(loc):
     pc = loc
     print(" PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC")
     while not check_bit(sr, 2): # while interrupt bit is not set
-        interpret()
-        pc+=1
+        change = interpret()
+        pc+=change
     return
 
 def set_bit(value, bit):
@@ -64,9 +64,11 @@ def interpret():
     opc = memory[pc]
     ins = "???"
     amod = "----"
-    oprnd = "-- --"
+    oprnd1 = "--"
+    oprnd2 = "--"
     hi = opc[0]
     lo = opc[1]
+    change = 1
 
     if lo == "0":
         if hi == "0": # brk impl
@@ -82,6 +84,221 @@ def interpret():
             memory[sp+256-2] = sr
 
             sp-=3
+        elif hi == "1": # bpl rel
+            ins = "BPL"
+            amod = "rel"
+        elif hi == "2": # jsr abs
+            ins = "JSR"
+            amod = "abs"
+        elif hi == "3": # bmi rel
+            ins = "BMI"
+            amod = "rel"
+        elif hi == "4": # rti impl
+            ins = "RTI"
+            amod = "impl"
+        elif hi == "5": # bvc rel
+            ins = "BVC"
+            amod = "rel"
+        elif hi == "6": # rts impl
+            ins = "RTS"
+            amod = "impl"
+        elif hi == "7": # bvs rel
+            ins = "BVS"
+            amod = "rel"
+        elif hi == "9": # bcc rel
+            ins = "BCC"
+            amod = "rel"
+        elif hi == "A": # ldy #
+            ins = "LDY"
+            amod = "#"
+        elif hi == "B": # bcs rel
+            ins = "BCS"
+            amod = "rel"
+        elif hi == "C": # cpy #
+            ins = "CPY"
+            amod = "#"
+        elif hi == "D": # bne rel
+            ins = "BNE"
+            amod = "rel"
+        elif hi == "E": # cpx #
+            ins = "CPX"
+            amod = "#"
+        elif hi == "F": # beq rel
+            ins = "BEQ"
+            amod = "rel"
+    elif lo == "1":
+        if hi == "0": # ora x,ind
+            ins = "ORA"
+            amod = "x,ind"
+        elif hi == "1": # ora ind,y
+            ins = "ORA"
+            amod = "ind,y"
+        elif hi == "2": # and x,ind
+            ins = "AND"
+            amod = "x,ind"
+        elif hi == "3": # and ind,y
+            ins = "AND"
+            amod = "ind,y"
+        elif hi == "4": # eor x,ind
+            ins = "EOR"
+            amod = "x,ind"
+        elif hi == "5": # eor ind,y
+            ins = "EOR"
+            amod = "ind,y"
+        elif hi == "6": # adc x,ind
+            ins = "ADC"
+            amod = "x,ind"
+        elif hi == "7": # adc ind,y
+            ins = "ADC"
+            amod = "ind,y"
+        elif hi == "8": # sta x,ind
+            ins = "STA"
+            amod = "x,ind"
+        elif hi == "9": # sta ind,y
+            ins = "STA"
+            amod = "ind,y"
+        elif hi == "A": # lda x,ind
+            ins = "LDA"
+            amod = "x,ind"
+        elif hi == "B": # lda ind,y
+            ins = "LDA"
+            amod = "ind,y"
+        elif hi == "C": # cmp x,ind
+            ins = "CMP"
+            amod = "x,ind"
+        elif hi == "D": # cmp ind,y
+            ins = "CMP"
+            amod = "ind,y"
+        elif hi == "E": # sbc x,ind
+            ins = "SBC"
+            amod = "x,ind"
+        elif hi == "F": # sbc ind,y
+            ins = "SBC"
+            amod = "ind,y"
+    elif lo == "2":
+        if hi == "A": # ldx #
+            ins = "LDX"
+            amod = "#"
+    elif lo == "4":
+        if hi == "2": # bit zpg
+            ins = "BIT"
+            amod = "zpg"
+        elif hi == "8": # sty zpg
+            ins = "STY"
+            amod = "zpg"
+        elif hi == "9": # sty zpg,x
+            ins = "STY"
+            amod = "zpg,x"
+        elif hi == "A": # ldy zpg
+            ins = "LDY"
+            amod = "zpg"
+        elif hi == "B": # ldy zpg,x
+            ins = "LDY"
+            amod = "zpg,x"
+        elif hi == "C": # cpy zpg
+            ins = "CPY"
+            amod = "zpg"
+        elif hi == "E": # cpx zpg
+            ins = "CPX"
+            amod = "zpg"
+    elif lo == "5":
+        if hi == "0": # ora zpg
+            ins = "ORA"
+            amod = "zpg"
+        elif hi == "1": # ora zpg,x
+            ins = "ORA"
+            amod = "zpg,x"
+        elif hi == "2": # and zpg
+            ins = "AND"
+            amod = "zpg"
+        elif hi == "3": # and zpg,x
+            ins = "AND"
+            amod = "zpg,x"
+        elif hi == "4": # eor zpg
+            ins = "EOR"
+            amod = "zpg"
+        elif hi == "5": # eor zpg,x
+            ins = "EOR"
+            amod = "zpg,x"
+        elif hi == "6": # adc zpg
+            ins = "ADC"
+            amod = "zpg"
+        elif hi == "7": # adc zpg,x
+            ins = "ADC"
+            amod = "zpg,x"
+        elif hi == "8": # sta zpg
+            ins = "STA"
+            amod = "zpg"
+        elif hi == "9": # sta zpg,x
+            ins = "STA"
+            amod = "zpg,x"
+        elif hi == "A": # lda zpg
+            ins = "LDA"
+            amod = "zpg"
+        elif hi == "B": # lda zpg,x
+            ins = "LDA"
+            amod = "zpg,x"
+        elif hi == "C": # cmp zpg
+            ins = "CMP"
+            amod = "zpg"
+        elif hi == "D": # cmp zpg,x
+            ins = "CMP"
+            amod = "zpg,x"
+        elif hi == "E": # sbc zpg
+            ins = "SBC"
+            amod = "zpg"
+        elif hi == "F": # sbc zpg,x
+            ins = "SBC"
+            amod = "zpg,x"
+    elif lo == "6":
+        if hi == "0": # asl zpg
+            ins = "ASL"
+            amod = "zpg"
+        elif hi == "1": # asl zpg,x
+            ins = "ASL"
+            amod = "zpg,x"
+        elif hi == "2": # rol zpg
+            ins = "ROL"
+            amod = "zpg"
+        elif hi == "3": # rol zpg,x
+            ins = "ROL"
+            amod = "zpg,x"
+        elif hi == "4": # lsr zpg
+            ins = "LSR"
+            amod = "zpg"
+        elif hi == "5": # lsr zpg,x
+            ins = "LSR"
+            amod = "zpg,x"
+        elif hi == "6": # ror zpg
+            ins = "ROR"
+            amod = "zpg"
+        elif hi == "7": # ror zpg,x
+            ins = "ROR"
+            amod = "zpg,x"
+        elif hi == "8": # stx zpg
+            ins = "STX"
+            amod = "zpg"
+        elif hi == "9": # stx zpg,x
+            ins = "STX"
+            amod = "zpg,x"
+        elif hi == "A": # ldx zpg
+            ins = "LDX"
+            amod = "zpg"
+        elif hi == "B": # ldx zpg,x
+            ins = "LDX"
+            amod = "zpg,x"
+        elif hi == "C": # dec zpg
+            ins = "DEC"
+            amod = "zpg"
+        elif hi == "D": # dec zpg,x
+            ins = "DEC"
+            amod = "zpg,x"
+        elif hi == "E": # inc zpg
+            ins = "INC"
+            amod = "zpg"
+        elif hi == "F": # inc zpg,x
+            ins = "INC"
+            amod = "zpg,x"
     elif lo == "8":
         amod = "impl"
 
@@ -216,6 +433,52 @@ def interpret():
         else: # sed impl
             ins = "SED"
             sr = set_bit(sr, 3)
+    elif lo == "9":
+        if hi == "0": # ora #
+            ins = "ORA"
+            amod = "#"
+        elif hi == "1": # ora abs,y
+            ins = "ORA"
+            amod = "abs,y"
+        elif hi == "2": # and #
+            ins = "AND"
+            amod = "#"
+        elif hi == "3": # and abs,y
+            ins = "AND"
+            amod = "abs,y"
+        elif hi == "4": # eor #
+            ins = "EOR"
+            amod = "#"
+        elif hi == "5": # eor abs,y
+            ins = "EOR"
+            amod = "abs,y"
+        elif hi == "6": # adc #
+            ins = "ADC"
+            amod = "#"
+        elif hi == "7": # adc abs,y
+            ins = "ADC"
+            amod = "abs,y"
+        elif hi == "9": # sta abs,y
+            ins = "STA"
+            amod = "abs,y"
+        elif hi == "A": # lda #
+            ins = "LDA"
+            amod = "#"
+        elif hi == "B": # lda abs,y
+            ins = "LDA"
+            amod = "abs,y"
+        elif hi == "C": # cmp #
+            ins = "CMP"
+            amod = "#"
+        elif hi == "D": # cmp abs,y
+            ins = "CMP"
+            amod = "abs,y"
+        elif hi == "E": # sbc #
+            ins = "SBC"
+            amod = "#"
+        elif hi == "F": # sbc abs,y
+            ins = "SBC"
+            amod = "abs,y"
     elif lo == "A":
         if hi == "0": # asl A
             ins = "ASL"
@@ -370,11 +633,130 @@ def interpret():
         elif hi == "E": # nop impl
             ins = "NOP"
             amod = "impl"
-
+    elif lo == "C":
+        if hi == "2": # bit abs
+            ins = "BIT"
+            amod = "abs"
+        elif hi == "4": # jmp abs
+            ins = "JMP"
+            amod = "abs"
+        elif hi == "6": # jmp ind
+            ins = "JMP"
+            amod = "ind"
+        elif hi == "8": # sty abs
+            ins = "STY"
+            amod = "abs"
+        elif hi == "A": # ldy abs
+            ins = "LDY"
+            amod = "abs"
+        elif hi == "B": # ldy abs,x
+            ins = "LDY"
+            amod = "abs,x"
+        elif hi == "C": # cpy abs
+            ins = "CPY"
+            amod = "abs"
+        elif hi == "E": # cpx abs
+            ins = "CPX"
+            amod = "abs"
+    elif lo == "D":
+        if hi == "0": # ora abs
+            ins = "ORA"
+            amod = "abs"
+        elif hi == "1": # ora abs,x
+            ins = "ORA"
+            amod = "abs,x"
+        elif hi == "2": # and abs
+            ins = "AND"
+            amod = "abs"
+        elif hi == "3": # and abs,x
+            ins = "AND"
+            amod = "abs,x"
+        elif hi == "4": # eor abs
+            ins = "EOR"
+            amod = "abs"
+        elif hi == "5": # eor abs,x
+            ins = "EOR"
+            amod = "abs,x"
+        elif hi == "6": # adc abs
+            ins = "ADC"
+            amod = "abs"
+        elif hi == "7": # adc abs,x
+            ins = "ADC"
+            amod = "abs,x"
+        elif hi == "8": # sta abs
+            ins = "STA"
+            amod = "abs"
+        elif hi == "9": # sta abs,x
+            ins = "STA"
+            amod = "abs,x"
+        elif hi == "A": # lda abs
+            ins = "LDA"
+            amod = "abs"
+        elif hi == "B": # lda abs,x
+            ins = "LDA"
+            amod = "abs,x"
+        elif hi == "C": # cmp abs
+            ins = "CMP"
+            amod = "abs"
+        elif hi == "D": # cmp abs,x
+            ins = "CMP"
+            amod = "abs,x"
+        elif hi == "E": # sbc abs
+            ins = "SBC"
+            amod = "abs"
+        elif hi == "F": # sbc abs,x
+            ins = "SBC"
+            amod = "abs,x"
+    elif lo == "E":
+        if hi == "0": # asl abs
+            ins = "ASL"
+            amod = "abs"
+        elif hi == "1": # asl abs,x
+            ins = "ASL"
+            amod = "abs,x"
+        elif hi == "2": # rol abs
+            ins = "ROL"
+            amod = "abs"
+        elif hi == "3": # rol abs,x
+            ins = "ROL"
+            amod = "abs,x"
+        elif hi == "4": # lsr abs
+            ins = "LSR"
+            amod = "abs"
+        elif hi == "5": # lsr abs,x
+            ins = "LSR"
+            amod = "abs,x"
+        elif hi == "6": # ror abs
+            ins = "ROR"
+            amod = "abs"
+        elif hi == "7": # ror abs,x
+            ins = "ROR"
+            amod = "abs,x"
+        elif hi == "8": # stx abs
+            ins = "STX"
+            amod = "abs"
+        elif hi == "A": # ldx abs
+            ins = "LDX"
+            amod = "abs"
+        elif hi == "B": # ldx abs,y
+            ins = "LDX"
+            amod = "abs,y"
+        elif hi == "C": # dec abs
+            ins = "DEC"
+            amod = "abs"
+        elif hi == "D": # dec abs,x
+            ins = "DEC"
+            amod = "abs,x"
+        elif hi == "E": # inc abs
+            ins = "INC"
+            amod = "abs"
+        elif hi == "F": # inc abs,x
+            ins = "INC"
+            amod = "abs,x"
     # PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC
-    output = " {:04X} {}  {}   {:>4} {}  {:02X} {:02X} {:02X} {:02X} {:08b}"
-    print(output.format(pc, opc, ins, amod, oprnd, ac, x, y, sp, sr))
-    return
+    output = " {:04X} {}  {}  {:>5} {} {}  {:02X} {:02X} {:02X} {:02X} {:08b}"
+    print(output.format(pc, opc, ins, amod, oprnd1, oprnd2, ac, x, y, sp, sr))
+    return change
 
 def file_input():
     if len(sys.argv) > 1:
@@ -414,7 +796,7 @@ def main():
 
     # get input
     monitor = input("> ").upper()
-    while "exit" not in monitor:
+    while "EXIT" not in monitor:
         # check input
         if "R" in monitor: # ex: 200R
             # run program at starting address
