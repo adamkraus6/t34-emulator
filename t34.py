@@ -38,9 +38,19 @@ def editMem(loc, newMem):
 
 def runProg(loc):
     global pc
+    global ac
+    global x
+    global y
+    global sr
+    global sp
     pc = loc
+    ac = 0
+    x = 0
+    y = 0
+    sr = 32
+    sp = 255
     print(" PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC")
-    while not check_bit(sr, 2): # while interrupt bit is not set
+    while not check_bit(sr, 4): # while break bit is not set
         change = interpret()
         pc+=change
     return
@@ -60,6 +70,7 @@ def interpret():
     global y
     global sr
     global sp
+    global pc
     
     opc = memory[pc]
     ins = "???"
@@ -87,33 +98,109 @@ def interpret():
         elif hi == "1": # bpl rel
             ins = "BPL"
             amod = "rel"
+            change = 2
+
+            if check_bit(sr, 7):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "2": # jsr abs
             ins = "JSR"
             amod = "abs"
+            change = 3
+
+            memory[sp+256] = (pc+2)>>8 # top half of pc
+            memory[sp+256-1] = (pc+2)%256 # bottom half of pc
+            newpc = memory[pc+2] + memory[pc+1]
+            pc = int(newpc, 16)
         elif hi == "3": # bmi rel
             ins = "BMI"
             amod = "rel"
+            change = 2
+
+            if not check_bit(sr, 7):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "4": # rti impl
             ins = "RTI"
             amod = "impl"
+
+            sr = memory[sp+256+1]
+            newpc = memory[sp+256+3] + memory[sp+256+2]
+            pc = int(newpc, 16)
+            sp += 3
         elif hi == "5": # bvc rel
             ins = "BVC"
             amod = "rel"
+            change = 2
+
+            if not check_bit(sr, 6):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "6": # rts impl
             ins = "RTS"
             amod = "impl"
+
+            pc = memory[sp+256+1]+1
         elif hi == "7": # bvs rel
             ins = "BVS"
             amod = "rel"
+            change = 2
+
+            if check_bit(sr, 6):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "9": # bcc rel
             ins = "BCC"
             amod = "rel"
+            change = 2
+
+            if not check_bit(sr, 0):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "A": # ldy #
             ins = "LDY"
             amod = "#"
+            change = 2
+
+            imm = int(memory[pc+1], 16)
+            y = imm
+
+            if check_bit(y, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
         elif hi == "B": # bcs rel
             ins = "BCS"
             amod = "rel"
+            change = 2
+
+            if check_bit(sr, 0):
+                offset = int(memory[pc+1], 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset
         elif hi == "C": # cpy #
             ins = "CPY"
             amod = "#"
