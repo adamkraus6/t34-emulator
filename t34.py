@@ -23,9 +23,12 @@ def displayMem(loc):
 def displayMemRange(start, end):
     chunked = list(chunks(memory[start:end+1], 8))
     for chunk in chunked:
-        print(format(start, "04X"), end=' ')
+        print("{:04X}".format(start), end=' ')
         for num in chunk:
-            print(format(num, "02X"), end=' ')
+            if isinstance(num, str):
+                print(num, end=' ')
+            else:
+                print("{:02X}".format(num), end=' ')
         start += 8
         print("")
     return
@@ -80,6 +83,7 @@ def interpret():
     hi = opc[0]
     lo = opc[1]
     change = 1
+    updatepc = 0
 
     if lo == "0":
         if hi == "0": # brk impl
@@ -98,33 +102,37 @@ def interpret():
         elif hi == "1": # bpl rel
             ins = "BPL"
             amod = "rel"
-            change = 2
-
-            if check_bit(sr, 7):
-                offset = int(memory[pc+1], 16)
-                if check_bit(offset, 7):
-                    offset = offset ^ 255
+            
+            oprnd1 = memory[pc+1]
+            if not check_bit(sr, 7): # branch if not negative
+                offset = int(oprnd1, 16)
+                if check_bit(offset, 7): # check if negative offset
+                    offset ^= 255
                     offset += 1
                     offset *= -1
                 change = offset
         elif hi == "2": # jsr abs
             ins = "JSR"
             amod = "abs"
-            change = 3
+            change = 0
 
             memory[sp+256] = (pc+2)>>8 # top half of pc
             memory[sp+256-1] = (pc+2)%256 # bottom half of pc
-            newpc = memory[pc+2] + memory[pc+1]
-            pc = int(newpc, 16)
+            sp -= 2
+
+            oprnd1 = memory[pc+1]
+            oprnd2 = memory[pc+2]
+            newpc = oprnd2 + oprnd1
+            updatepc = int(newpc, 16)
         elif hi == "3": # bmi rel
             ins = "BMI"
             amod = "rel"
-            change = 2
 
-            if not check_bit(sr, 7):
-                offset = int(memory[pc+1], 16)
-                if check_bit(offset, 7):
-                    offset = offset ^ 255
+            oprnd1 = memory[pc+1]
+            if check_bit(sr, 7): # branch if negative
+                offset = int(oprnd1, 16)
+                if check_bit(offset, 7): # check if negative offset
+                    offset ^= 255
                     offset += 1
                     offset *= -1
                 change = offset
@@ -133,69 +141,82 @@ def interpret():
             amod = "impl"
 
             sr = memory[sp+256+1]
-            newpc = memory[sp+256+3] + memory[sp+256+2]
-            pc = int(newpc, 16)
+            pcl = memory[sp+256+2]
+            pch = memory[sp+256+3]
             sp += 3
+            newpc = pch + pcl
+            updatepc = int(newpc, 16)
         elif hi == "5": # bvc rel
             ins = "BVC"
             amod = "rel"
-            change = 2
 
-            if not check_bit(sr, 6):
-                offset = int(memory[pc+1], 16)
+            oprnd1 = memory[pc+1]
+            if not check_bit(sr, 6): # branch on not overflow
+                offset = int(oprnd1, 16)
                 if check_bit(offset, 7):
-                    offset = offset ^ 255
+                    offset ^= 255
                     offset += 1
                     offset *= -1
                 change = offset
         elif hi == "6": # rts impl
             ins = "RTS"
             amod = "impl"
+            change = 0
 
-            pc = memory[sp+256+1]+1
+            pcl = memory[sp+256+1] # bottom half of pc
+            pch = memory[sp+256+2] # top half of pc
+            sp += 2
+            newpc = pcl + pch
+            updatepc = newpc+1
         elif hi == "7": # bvs rel
             ins = "BVS"
             amod = "rel"
-            change = 2
 
-            if check_bit(sr, 6):
-                offset = int(memory[pc+1], 16)
+            oprnd1 = memory[pc+1]
+            if check_bit(sr, 6): # branch on overflow
+                offset = int(oprnd1, 16)
                 if check_bit(offset, 7):
-                    offset = offset ^ 255
+                    offset ^= 255
                     offset += 1
                     offset *= -1
                 change = offset
         elif hi == "9": # bcc rel
             ins = "BCC"
             amod = "rel"
-            change = 2
 
-            if not check_bit(sr, 0):
-                offset = int(memory[pc+1], 16)
+            oprnd1 = memory[pc+1]
+            if not check_bit(sr, 0): # branch on not carry
+                offset = int(oprnd1, 16)
                 if check_bit(offset, 7):
                     offset = offset ^ 255
                     offset += 1
                     offset *= -1
-                change = offset
+                change = offset+2
         elif hi == "A": # ldy #
             ins = "LDY"
             amod = "#"
             change = 2
 
-            imm = int(memory[pc+1], 16)
-            y = imm
+            oprnd1 = memory[pc+1]
+            y = int(oprnd1, 16)
 
             if check_bit(y, 7): # set negative flag
                 sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
             if y == 0: # set zero flag
                 sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "B": # bcs rel
             ins = "BCS"
             amod = "rel"
             change = 2
 
-            if check_bit(sr, 0):
-                offset = int(memory[pc+1], 16)
+            oprnd1 = memory[pc+1]
+            if check_bit(sr, 0): # branch on carry
+                offset = int(oprnd1, 16)
                 if check_bit(offset, 7):
                     offset = offset ^ 255
                     offset += 1
@@ -204,84 +225,121 @@ def interpret():
         elif hi == "C": # cpy #
             ins = "CPY"
             amod = "#"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val1 = int(oprnd1, 16)
+            val2 = y - val1
+
+            if val2 == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if y >= val1: # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+
+            if check_bit(val2, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
         elif hi == "D": # bne rel
             ins = "BNE"
             amod = "rel"
+
+            oprnd1 = memory[pc+1]
+            if not check_bit(sr, 1): # branch on not zero
+                offset = int(oprnd1, 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset+2
         elif hi == "E": # cpx #
             ins = "CPX"
             amod = "#"
         elif hi == "F": # beq rel
             ins = "BEQ"
             amod = "rel"
-    elif lo == "1":
-        if hi == "0": # ora x,ind
-            ins = "ORA"
-            amod = "x,ind"
-        elif hi == "1": # ora ind,y
-            ins = "ORA"
-            amod = "ind,y"
-        elif hi == "2": # and x,ind
-            ins = "AND"
-            amod = "x,ind"
-        elif hi == "3": # and ind,y
-            ins = "AND"
-            amod = "ind,y"
-        elif hi == "4": # eor x,ind
-            ins = "EOR"
-            amod = "x,ind"
-        elif hi == "5": # eor ind,y
-            ins = "EOR"
-            amod = "ind,y"
-        elif hi == "6": # adc x,ind
-            ins = "ADC"
-            amod = "x,ind"
-        elif hi == "7": # adc ind,y
-            ins = "ADC"
-            amod = "ind,y"
-        elif hi == "8": # sta x,ind
-            ins = "STA"
-            amod = "x,ind"
-        elif hi == "9": # sta ind,y
-            ins = "STA"
-            amod = "ind,y"
-        elif hi == "A": # lda x,ind
-            ins = "LDA"
-            amod = "x,ind"
-        elif hi == "B": # lda ind,y
-            ins = "LDA"
-            amod = "ind,y"
-        elif hi == "C": # cmp x,ind
-            ins = "CMP"
-            amod = "x,ind"
-        elif hi == "D": # cmp ind,y
-            ins = "CMP"
-            amod = "ind,y"
-        elif hi == "E": # sbc x,ind
-            ins = "SBC"
-            amod = "x,ind"
-        elif hi == "F": # sbc ind,y
-            ins = "SBC"
-            amod = "ind,y"
+
+            oprnd1 = memory[pc+1]
+            if check_bit(sr, 1): # branch on zero
+                offset = int(oprnd1, 16)
+                if check_bit(offset, 7):
+                    offset = offset ^ 255
+                    offset += 1
+                    offset *= -1
+                change = offset 
     elif lo == "2":
         if hi == "A": # ldx #
             ins = "LDX"
             amod = "#"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            x = int(oprnd1, 16)
+
+            if check_bit(x, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
     elif lo == "4":
         if hi == "2": # bit zpg
             ins = "BIT"
             amod = "zpg"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val1 = int(oprnd1, 16)
+            val2 = ac & val1
+
+            if check_bit(val1, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if val2 == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if check_bit(val1, 6): # set overflow flag
+                sr = set_bit(sr, 6)
+            else:
+                sr = clear_bit(sr, 6)
         elif hi == "8": # sty zpg
             ins = "STY"
             amod = "zpg"
-        elif hi == "9": # sty zpg,x
-            ins = "STY"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            memory[loc] = y
         elif hi == "A": # ldy zpg
             ins = "LDY"
             amod = "zpg"
-        elif hi == "B": # ldy zpg,x
-            ins = "LDY"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            y = memory[loc]
+
+            if check_bit(y, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if y == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "C": # cpy zpg
             ins = "CPY"
             amod = "zpg"
@@ -292,100 +350,202 @@ def interpret():
         if hi == "0": # ora zpg
             ins = "ORA"
             amod = "zpg"
-        elif hi == "1": # ora zpg,x
-            ins = "ORA"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val = int(oprnd1, 16)
+            ac |= val
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "2": # and zpg
             ins = "AND"
             amod = "zpg"
-        elif hi == "3": # and zpg,x
-            ins = "AND"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val = int(oprnd1, 16)
+            ac &= val
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "4": # eor zpg
             ins = "EOR"
             amod = "zpg"
-        elif hi == "5": # eor zpg,x
-            ins = "EOR"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val = int(oprnd1, 16)
+            ac ^= val
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "6": # adc zpg
             ins = "ADC"
             amod = "zpg"
-        elif hi == "7": # adc zpg,x
-            ins = "ADC"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val = int(oprnd1, 16)
+            old_ac = ac
+            ac += val
+            if check_bit(sr, 0):
+                ac += 1
+            
+            if check_bit(ac, 8): # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+            ac %= 256
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            # set overflow flag
+            if (check_bit(old_ac, 7) and check_bit(val, 7) and not check_bit(ac, 7)) or (not check_bit(old_ac, 7) and not check_bit(val, 7) and check_bit(ac, 7)):
+                sr = set_bit(sr, 6)
+            else:
+                sr = clear_bit(sr, 6)
         elif hi == "8": # sta zpg
             ins = "STA"
             amod = "zpg"
-        elif hi == "9": # sta zpg,x
-            ins = "STA"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            memory[loc] = ac
         elif hi == "A": # lda zpg
             ins = "LDA"
             amod = "zpg"
-        elif hi == "B": # lda zpg,x
-            ins = "LDA"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            ac = memory[loc]
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "C": # cmp zpg
             ins = "CMP"
             amod = "zpg"
-        elif hi == "D": # cmp zpg,x
-            ins = "CMP"
-            amod = "zpg,x"
         elif hi == "E": # sbc zpg
             ins = "SBC"
             amod = "zpg"
-        elif hi == "F": # sbc zpg,x
-            ins = "SBC"
-            amod = "zpg,x"
     elif lo == "6":
         if hi == "0": # asl zpg
             ins = "ASL"
             amod = "zpg"
-        elif hi == "1": # asl zpg,x
-            ins = "ASL"
-            amod = "zpg,x"
         elif hi == "2": # rol zpg
             ins = "ROL"
             amod = "zpg"
-        elif hi == "3": # rol zpg,x
-            ins = "ROL"
-            amod = "zpg,x"
         elif hi == "4": # lsr zpg
             ins = "LSR"
             amod = "zpg"
-        elif hi == "5": # lsr zpg,x
-            ins = "LSR"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            oldval = int(memory[loc], 16)
+            val = oldval >> 1
+            memory[loc] = val
+
+            if val == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if val < oldval: # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
         elif hi == "6": # ror zpg
             ins = "ROR"
             amod = "zpg"
-        elif hi == "7": # ror zpg,x
-            ins = "ROR"
-            amod = "zpg,x"
         elif hi == "8": # stx zpg
             ins = "STX"
             amod = "zpg"
-        elif hi == "9": # stx zpg,x
-            ins = "STX"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            memory[loc] = x
         elif hi == "A": # ldx zpg
             ins = "LDX"
             amod = "zpg"
-        elif hi == "B": # ldx zpg,x
-            ins = "LDX"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            x = int(memory[loc], 16)
+
+            if check_bit(x, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if x == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "C": # dec zpg
             ins = "DEC"
             amod = "zpg"
-        elif hi == "D": # dec zpg,x
-            ins = "DEC"
-            amod = "zpg,x"
         elif hi == "E": # inc zpg
             ins = "INC"
             amod = "zpg"
-        elif hi == "F": # inc zpg,x
-            ins = "INC"
-            amod = "zpg,x"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            loc = int(oprnd1, 16)
+            val = memory[loc]
+            val += 1
+            val %= 256
+            memory[loc] = val
+
+            if check_bit(val, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if val == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
     elif lo == "8":
         amod = "impl"
 
@@ -524,48 +684,95 @@ def interpret():
         if hi == "0": # ora #
             ins = "ORA"
             amod = "#"
-        elif hi == "1": # ora abs,y
-            ins = "ORA"
-            amod = "abs,y"
         elif hi == "2": # and #
             ins = "AND"
             amod = "#"
-        elif hi == "3": # and abs,y
-            ins = "AND"
-            amod = "abs,y"
         elif hi == "4": # eor #
             ins = "EOR"
             amod = "#"
-        elif hi == "5": # eor abs,y
-            ins = "EOR"
-            amod = "abs,y"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val = int(oprnd1, 16)
+            ac ^= val
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "6": # adc #
             ins = "ADC"
             amod = "#"
-        elif hi == "7": # adc abs,y
-            ins = "ADC"
-            amod = "abs,y"
-        elif hi == "9": # sta abs,y
-            ins = "STA"
-            amod = "abs,y"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            ac += int(oprnd1, 16)
+            if check_bit(sr, 0): # add carry
+                ac += 1
+
+            if ac > 255: # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+            ac %= 256
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
         elif hi == "A": # lda #
             ins = "LDA"
             amod = "#"
-        elif hi == "B": # lda abs,y
-            ins = "LDA"
-            amod = "abs,y"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            ac = int(oprnd1, 16)
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
         elif hi == "C": # cmp #
             ins = "CMP"
             amod = "#"
-        elif hi == "D": # cmp abs,y
-            ins = "CMP"
-            amod = "abs,y"
+            change = 2
+
+            oprnd1 = memory[pc+1]
+            val1 = int(oprnd1, 16)
+            val2 = ac - val1
+
+            if val2 == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            if ac >= val1: # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+
+            if check_bit(val2, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
         elif hi == "E": # sbc #
             ins = "SBC"
             amod = "#"
-        elif hi == "F": # sbc abs,y
-            ins = "SBC"
-            amod = "abs,y"
     elif lo == "A":
         if hi == "0": # asl A
             ins = "ASL"
@@ -730,15 +937,20 @@ def interpret():
         elif hi == "6": # jmp ind
             ins = "JMP"
             amod = "ind"
+            change = 0
+
+            oprnd1 = memory[pc+1]
+            oprnd2 = memory[pc+2]
+            loc = int(oprnd2 + oprnd1, 16)
+            pcl = memory[loc]
+            pch = memory[loc+1]
+            updatepc = int(pch + pcl, 16)
         elif hi == "8": # sty abs
             ins = "STY"
             amod = "abs"
         elif hi == "A": # ldy abs
             ins = "LDY"
             amod = "abs"
-        elif hi == "B": # ldy abs,x
-            ins = "LDY"
-            amod = "abs,x"
         elif hi == "C": # cpy abs
             ins = "CPY"
             amod = "abs"
@@ -749,100 +961,96 @@ def interpret():
         if hi == "0": # ora abs
             ins = "ORA"
             amod = "abs"
-        elif hi == "1": # ora abs,x
-            ins = "ORA"
-            amod = "abs,x"
         elif hi == "2": # and abs
             ins = "AND"
             amod = "abs"
-        elif hi == "3": # and abs,x
-            ins = "AND"
-            amod = "abs,x"
         elif hi == "4": # eor abs
             ins = "EOR"
             amod = "abs"
-        elif hi == "5": # eor abs,x
-            ins = "EOR"
-            amod = "abs,x"
         elif hi == "6": # adc abs
             ins = "ADC"
             amod = "abs"
-        elif hi == "7": # adc abs,x
-            ins = "ADC"
-            amod = "abs,x"
+            change = 3
+
+            oprnd1 = memory[pc+1]
+            oprnd2 = memory[pc+2]
+            loc = int(oprnd2 + oprnd1, 16)
+            val = int(memory[loc], 16)
+            old_ac = ac
+            ac += val
+            if check_bit(sr, 0):
+                ac += 1
+            
+            if check_bit(ac, 8): # set carry flag
+                sr = set_bit(sr, 0)
+            else:
+                sr = clear_bit(sr, 0)
+            ac %= 256
+
+            if check_bit(ac, 7): # set negative flag
+                sr = set_bit(sr, 7)
+            else:
+                sr = clear_bit(sr, 7)
+            
+            if ac == 0: # set zero flag
+                sr = set_bit(sr, 1)
+            else:
+                sr = clear_bit(sr, 1)
+
+            # set overflow flag
+            if (check_bit(old_ac, 7) and check_bit(val, 7) and not check_bit(ac, 7)) or (not check_bit(old_ac, 7) and not check_bit(val, 7) and check_bit(ac, 7)):
+                sr = set_bit(sr, 6)
+            else:
+                sr = clear_bit(sr, 6)
         elif hi == "8": # sta abs
             ins = "STA"
             amod = "abs"
-        elif hi == "9": # sta abs,x
-            ins = "STA"
-            amod = "abs,x"
         elif hi == "A": # lda abs
             ins = "LDA"
             amod = "abs"
-        elif hi == "B": # lda abs,x
-            ins = "LDA"
-            amod = "abs,x"
+            change = 3
+
+            oprnd1 = memory[pc+1]
+            oprnd2 = memory[pc+2]
+
+            loc = int(oprnd2 + oprnd1, 16)
+            ac = int(memory[loc], 16)
         elif hi == "C": # cmp abs
             ins = "CMP"
             amod = "abs"
-        elif hi == "D": # cmp abs,x
-            ins = "CMP"
-            amod = "abs,x"
         elif hi == "E": # sbc abs
             ins = "SBC"
             amod = "abs"
-        elif hi == "F": # sbc abs,x
-            ins = "SBC"
-            amod = "abs,x"
     elif lo == "E":
         if hi == "0": # asl abs
             ins = "ASL"
             amod = "abs"
-        elif hi == "1": # asl abs,x
-            ins = "ASL"
-            amod = "abs,x"
         elif hi == "2": # rol abs
             ins = "ROL"
             amod = "abs"
-        elif hi == "3": # rol abs,x
-            ins = "ROL"
-            amod = "abs,x"
         elif hi == "4": # lsr abs
             ins = "LSR"
             amod = "abs"
-        elif hi == "5": # lsr abs,x
-            ins = "LSR"
-            amod = "abs,x"
         elif hi == "6": # ror abs
             ins = "ROR"
             amod = "abs"
-        elif hi == "7": # ror abs,x
-            ins = "ROR"
-            amod = "abs,x"
         elif hi == "8": # stx abs
             ins = "STX"
             amod = "abs"
         elif hi == "A": # ldx abs
             ins = "LDX"
             amod = "abs"
-        elif hi == "B": # ldx abs,y
-            ins = "LDX"
-            amod = "abs,y"
         elif hi == "C": # dec abs
             ins = "DEC"
             amod = "abs"
-        elif hi == "D": # dec abs,x
-            ins = "DEC"
-            amod = "abs,x"
         elif hi == "E": # inc abs
             ins = "INC"
             amod = "abs"
-        elif hi == "F": # inc abs,x
-            ins = "INC"
-            amod = "abs,x"
     # PC  OPC  INS   AMOD OPRND  AC XR YR SP NV-BDIZC
     output = " {:04X} {}  {}  {:>5} {} {}  {:02X} {:02X} {:02X} {:02X} {:08b}"
     print(output.format(pc, opc, ins, amod, oprnd1, oprnd2, ac, x, y, sp, sr))
+    if change == 0:
+        pc = updatepc
     return change
 
 def file_input():
