@@ -17,7 +17,7 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def displayMem(loc):
-    print("{:04X} {}".format(loc, memory[loc]))
+    print("{:04X} {:02X}".format(loc, memory[loc]))
     return
 
 def displayMemRange(start, end):
@@ -1788,6 +1788,7 @@ def file_input():
                 return
 
             if checksum_calc != checksum_obj:
+                print("{:02X}".format(checksum_calc))
                 print("Format error input file: ", sys.argv[1])
                 return
 
